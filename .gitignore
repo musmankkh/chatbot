@@ -1,41 +1,5 @@
-# Environment variables - DO NOT COMMIT
-.env
-*.env
-
-# Virtual environment - DO NOT COMMIT
+# Virtual environment
 venv/
-env/
-ENV/
-.venv
 
-# Python cache
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-*.so
+.venv/
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Key files - DO NOT COMMIT
-*.pem
-*.key
-chatbot-key.pem
-
-# Chat history and uploads
-
-uploads/
-
-# Logs
-*.log
-nohup.out
-app.log
