@@ -1,0 +1,11 @@
+Flask
+flask-cors
+python-dotenv
+requests
+langchain
+langchain-community
+langchain-openai
+openai
+pypdf
+docx2txt
+faiss-cpu
