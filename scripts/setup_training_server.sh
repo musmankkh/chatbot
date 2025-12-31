@@ -11,7 +11,7 @@ sudo yum install -y git
 
 # Clone repository
 cd /home/ec2-user
-git clone https://github.com/YOUR_USERNAME/your-chatbot-repo.git chatbot
+git clone https://github.com/musmankkh/chatbot.git chatbot
 cd chatbot
 
 # Create virtual environment
