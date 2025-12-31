@@ -289,6 +289,20 @@ def add_to_history(question, answer, sources=None):
     save_chat_history()
 
 
+def is_greeting(question):
+    """Check if the question is a greeting"""
+    greetings = [
+        'hi', 'hello', 'hey', 'greetings', 'good morning', 'good afternoon',
+        'good evening', 'howdy', 'hola', 'sup', "what's up", 'whats up'
+    ]
+    question_lower = question.lower().strip()
+    
+    # Check if the entire message is just a greeting (or greeting + punctuation)
+    clean_question = question_lower.rstrip('!?.;, ')
+    
+    return clean_question in greetings or any(question_lower.startswith(g) for g in greetings)
+
+
 def is_summary_request(question):
     """Check if the question is asking for a summary"""
     summary_keywords = [
@@ -306,6 +320,22 @@ def get_answer(question):
         return "❌ Models not loaded. Please run: python train_model.py", None
     
     try:
+        # Check if it's a greeting
+        if is_greeting(question):
+            file_list = ", ".join([f['filename'] for f in uploaded_files]) if uploaded_files else "no documents yet"
+            greeting_response = f"""Hello! 👋 I'm your AI document assistant. I'm here to help you find information from your documents.
+
+Currently loaded documents: {file_list}
+
+You can ask me:
+- Questions about the content in your documents
+- To summarize any document
+- To find specific information or data
+- To analyze CSV files and extract data
+
+What would you like to know?"""
+            return greeting_response, None
+        
         is_summary = is_summary_request(question)
         k = 15 if is_summary else 12
         results = hybrid_search(question, k=k, alpha=0.6)
