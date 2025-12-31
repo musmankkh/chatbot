@@ -32,8 +32,7 @@ Thumbs.db
 chatbot-key.pem
 
 # Chat history and uploads
-chat_history.json
-files/
+
 uploads/
 
 # Logs
