@@ -4,12 +4,78 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Document-Based AI Chatbot</title>
-    <link
+     <link
       rel="stylesheet"
       href="{{ url_for('static', filename='styles.css') }}"
     />
   </head>
   <body>
+    <!-- Scroll Progress Indicator -->
+    <div class="scroll-indicator" id="scrollIndicator"></div>
+
+    <!-- Main Page Content -->
+    <div class="main-page">
+      <div class="hero-section">
+        <h1>Welcome to AI Document Assistant</h1>
+        <p>
+          Our AI-powered chatbot will help you find answers instantly .
+        </p>
+        <button class="cta-button" onclick="toggleChatbot()">
+          Start Chatting Now →
+        </button>
+      </div>
+
+      <div class="features-section">
+        <div class="feature-card">
+          <div class="feature-icon">🤖</div>
+          <h3>Smart AI Assistant</h3>
+          <p>
+            Powered by advanced language models to understand context and provide accurate answers from your documents.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">📄</div>
+          <h3>Document Analysis</h3>
+          <p>
+            Upload PDFs, Word documents, and text files. Our system extracts and indexes all content for quick retrieval.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">⚡</div>
+          <h3>Instant Answers</h3>
+          <p>
+            Get immediate responses with relevant source citations. No need to manually search through long documents.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">💾</div>
+          <h3>Conversation History</h3>
+          <p>
+            All your questions and answers are automatically saved. Review past conversations anytime you need.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🔒</div>
+          <h3>Secure & Private</h3>
+          <p>
+            Your documents and conversations stay private. We use industry-standard security practices to protect your data.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🎯</div>
+          <h3>Accurate Sources</h3>
+          <p>
+            Every answer includes source references, so you can verify information and dive deeper into specific sections.
+          </p>
+        </div>
+      </div>
+    </div>
+
     <!-- Floating Chatbot Button -->
     <button class="chatbot-toggle" id="chatbotToggle" onclick="toggleChatbot()">
       <svg class="chat-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -24,25 +90,19 @@
     <!-- Chatbot Container -->
     <div class="chatbot-container" id="chatbotContainer">
       <div class="container">
-        <!-- Main Content -->
         <div class="main-content">
           <div class="chat-header">
-            <h1>📚 AI Document Assistant</h1>
+            <h1 class="chatbot-title">📚 AI Document Assistant</h1>
             <p class="subtitle">
-              Ask questions about your documents. Conversation history is
-              automatically saved!
+              Ask questions about your documents. Conversation history is automatically saved!
             </p>
           </div>
 
-          <!-- Tabs -->
           <div class="tabs">
-            <button class="tab active" onclick="switchTab('chat')">
-              💬 Chat
-            </button>
+            <button class="tab active" onclick="switchTab('chat')">💬 Chat</button>
             <button class="tab" onclick="switchTab('history')">📜 History</button>
           </div>
 
-          <!-- Chat Tab -->
           <div id="chatTab" class="tab-content active">
             <div class="chat-section">
               <div class="input-group">
@@ -51,11 +111,7 @@
                   id="questionInput"
                   placeholder="Ask a question about your documents..."
                 />
-                <button
-                  class="ask-button"
-                  onclick="askQuestion()"
-                  id="askBtn"
-                >
+                <button class="ask-button" onclick="askQuestion()" id="askBtn">
                   Ask
                 </button>
               </div>
@@ -64,7 +120,6 @@
             </div>
           </div>
 
-          <!-- History Tab -->
           <div id="historyTab" class="tab-content">
             <div class="history-header">
               <h2>📜 Conversation History</h2>
@@ -80,6 +135,7 @@
       </div>
     </div>
 
+    
     <script src="{{ url_for('static', filename='app.js') }}"></script>
   </body>
 </html>
