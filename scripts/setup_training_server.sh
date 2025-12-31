@@ -25,31 +25,36 @@ fi
 python3 -m venv venv
 source venv/bin/activate
 
-# Create requirements.txt for training if it doesn't exist
-cd training
+
 if [ ! -f "requirements.txt" ]; then
     cat > requirements.txt << 'EOF'
 # Training Dependencies
-pandas
-numpy
-scikit-learn
+flask
+flask-cors
+python-dotenv
+requests
+
+openai
 langchain
 langchain-community
-openai
-gensim
-nltk
-rank-bm25
-PyPDF2
+langchain-core
+langchain-text-splitters
+
+pypdf
 docx2txt
-python-docx
-boto3
-python-dotenv
-psutil
+faiss-cpu
+pandas
+nltk
+gensim
+rank-bm25
 EOF
 fi
 
 # Install dependencies
 pip install -r requirements.txt
+# Create requirements.txt for training if it doesn't exist
+cd training
+
 
 # Download NLTK data
 python -c "import nltk; nltk.download('punkt'); nltk.download('stopwords')"
