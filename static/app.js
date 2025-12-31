@@ -1,4 +1,3 @@
-// Elements
 const questionInput = document.getElementById('questionInput');
 const askBtn = document.getElementById('askBtn');
 const response = document.getElementById('response');
@@ -153,8 +152,32 @@ function switchTab(tab) {
   }
 }
 
-// Mock functions for demo
-function askQuestion() {
+// Initialize app
+loadHistory();
+checkServerStatus();
+
+// Check server status
+async function checkServerStatus() {
+  try {
+    const res = await fetch('/status');
+    const data = await res.json();
+
+    if (data.documents_loaded === 0) {
+      questionInput.disabled = true;
+      askBtn.disabled = true;
+      response.textContent = '⚠️ No documents loaded. Please add files to the "files" folder and restart the server.';
+    } else {
+      questionInput.disabled = false;
+      askBtn.disabled = false;
+    }
+  } catch (error) {
+    console.error('Error checking server status:', error);
+    showToast('Unable to connect to server', 'error');
+  }
+}
+
+// Ask question - connected to real API
+async function askQuestion() {
   const question = questionInput.value.trim();
   if (!question) {
     showToast('Please enter a question', 'warning');
@@ -166,32 +189,91 @@ function askQuestion() {
   response.textContent = '🤔 Thinking...';
   sourcesDiv.style.display = 'none';
 
-  // Simulate API call
-  setTimeout(() => {
-    response.textContent = `This is a demo answer to: "${question}". In production, this would connect to your backend API.`;
-    sourcesDiv.innerHTML = '<strong>📚 Sources:</strong> document1.pdf, document2.txt';
-    sourcesDiv.style.display = 'block';
-    questionInput.value = '';
+  try {
+    const res = await fetch('/ask', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ question: question })
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+      response.textContent = data.answer;
+
+      if (data.sources && data.sources.length > 0) {
+        sourcesDiv.innerHTML = `<strong>📚 Sources:</strong> ${data.sources.join(', ')}`;
+        sourcesDiv.style.display = 'block';
+      }
+
+      questionInput.value = '';
+      showToast('Answer received!', 'success');
+
+      // Reload history if on history tab
+      if (document.getElementById('historyTab').classList.contains('active')) {
+        loadHistory();
+      }
+    } else {
+      response.textContent = data.message || 'Failed to get answer';
+      showToast(data.message || 'Failed to get answer', 'error');
+    }
+  } catch (error) {
+    response.textContent = `Error: ${error.message}`;
+    showToast(`Error: ${error.message}`, 'error');
+  } finally {
     askBtn.disabled = false;
     askBtn.textContent = 'Ask';
-    showToast('Answer received!', 'success');
-  }, 1500);
+  }
 }
 
-function loadHistory() {
-  historyList.innerHTML = `
-    <div class="history-item">
-      <div class="history-question">Q: What is machine learning?</div>
-      <div class="history-answer">A: Machine learning is a subset of artificial intelligence...</div>
-      <div class="history-meta">📚 Sources: ml_guide.pdf</div>
-      <div class="history-meta">🕒 ${new Date().toLocaleString()}</div>
-    </div>
-  `;
+// Load history from server
+async function loadHistory() {
+  try {
+    const res = await fetch('/history');
+    const data = await res.json();
+
+    if (data.history && data.history.length > 0) {
+      historyList.innerHTML = data.history.reverse().map(item => {
+        const date = new Date(item.timestamp).toLocaleString();
+        const sources = item.sources && item.sources.length > 0 
+          ? `<div class="history-meta">📚 Sources: ${item.sources.join(', ')}</div>`
+          : '';
+        return `
+          <div class="history-item">
+            <div class="history-question">Q: ${item.question}</div>
+            <div class="history-answer">A: ${item.answer}</div>
+            ${sources}
+            <div class="history-meta">🕒 ${date}</div>
+          </div>
+        `;
+      }).join('');
+    } else {
+      historyList.innerHTML = '<div class="empty-state">No conversation history yet</div>';
+    }
+  } catch (error) {
+    console.error('Error loading history:', error);
+    showToast('Failed to load history', 'error');
+  }
 }
 
-function clearHistory() {
-  showConfirmModal('Are you sure you want to clear all conversation history?', function() {
-    historyList.innerHTML = '<div class="empty-state">No conversation history yet</div>';
-    showToast('History cleared successfully', 'success');
+// Clear history on server
+async function clearHistory() {
+  showConfirmModal('Are you sure you want to clear all conversation history?', async function() {
+    try {
+      const res = await fetch('/history', {
+        method: 'DELETE'
+      });
+
+      if (res.ok) {
+        loadHistory();
+        showToast('History cleared successfully', 'success');
+      } else {
+        showToast('Failed to clear history', 'error');
+      }
+    } catch (error) {
+      showToast(`Error: ${error.message}`, 'error');
+    }
   });
 }
