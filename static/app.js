@@ -1,28 +1,126 @@
 // Elements
-const fileInput = document.getElementById('fileInput');
-const uploadBtn = document.getElementById('uploadBtn');
-const selectedFile = document.getElementById('selectedFile');
-const uploadStatus = document.getElementById('uploadStatus');
 const questionInput = document.getElementById('questionInput');
 const askBtn = document.getElementById('askBtn');
 const response = document.getElementById('response');
 const sourcesDiv = document.getElementById('sources');
-const fileList = document.getElementById('fileList');
-const fileCount = document.getElementById('fileCount');
 const historyList = document.getElementById('historyList');
+const chatbotToggle = document.getElementById('chatbotToggle');
+const chatbotContainer = document.getElementById('chatbotContainer');
 
 // Load initial data
-loadFiles();
 loadHistory();
+checkServerStatus();
 
-// File selection
-fileInput.addEventListener('change', function () {
-    if (this.files.length > 0) {
-        uploadBtn.disabled = false;
-        selectedFile.textContent = `📄 Selected: ${this.files[0].name}`;
-    } else {
-        uploadBtn.disabled = true;
-        selectedFile.textContent = '';
+// Toast notification function
+function showToast(message, type = 'info') {
+    // Remove existing toast if any
+    const existingToast = document.querySelector('.toast-notification');
+    if (existingToast) {
+        existingToast.remove();
+    }
+
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.className = `toast-notification toast-${type}`;
+    
+    // Icon based on type
+    const icons = {
+        success: '✅',
+        error: '❌',
+        warning: '⚠️',
+        info: 'ℹ️'
+    };
+    
+    toast.innerHTML = `
+        <span class="toast-icon">${icons[type] || icons.info}</span>
+        <span class="toast-message">${message}</span>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    // Trigger animation
+    setTimeout(() => toast.classList.add('show'), 10);
+    
+    // Auto remove after 3 seconds
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+// Custom confirmation modal
+function showConfirmModal(message, onConfirm) {
+    // Create modal overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    
+    // Create modal
+    const modal = document.createElement('div');
+    modal.className = 'confirm-modal';
+    modal.innerHTML = `
+        <div class="modal-icon">❓</div>
+        <div class="modal-message">${message}</div>
+        <div class="modal-buttons">
+            <button class="modal-btn modal-btn-cancel" onclick="closeConfirmModal()">Cancel</button>
+            <button class="modal-btn modal-btn-confirm" onclick="confirmAction()">Confirm</button>
+        </div>
+    `;
+    
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    
+    // Trigger animation
+    setTimeout(() => overlay.classList.add('show'), 10);
+    
+    // Store callback
+    window.confirmCallback = onConfirm;
+    
+    // Close on overlay click
+    overlay.addEventListener('click', function(e) {
+        if (e.target === overlay) {
+            closeConfirmModal();
+        }
+    });
+}
+
+// Close confirmation modal
+window.closeConfirmModal = function() {
+    const overlay = document.querySelector('.modal-overlay');
+    if (overlay) {
+        overlay.classList.remove('show');
+        setTimeout(() => overlay.remove(), 300);
+    }
+    window.confirmCallback = null;
+}
+
+// Confirm action
+window.confirmAction = function() {
+    if (window.confirmCallback) {
+        window.confirmCallback();
+    }
+    closeConfirmModal();
+}
+
+// Toggle chatbot window
+function toggleChatbot() {
+    chatbotContainer.classList.toggle('active');
+    chatbotToggle.classList.toggle('active');
+    
+    // Focus on input when opening
+    if (chatbotContainer.classList.contains('active')) {
+        setTimeout(() => {
+            questionInput.focus();
+        }, 300);
+    }
+}
+
+// Close chatbot when clicking outside
+document.addEventListener('click', function(event) {
+    const isClickInside = chatbotContainer.contains(event.target) || 
+                         chatbotToggle.contains(event.target);
+    
+    if (!isClickInside && chatbotContainer.classList.contains('active')) {
+        toggleChatbot();
     }
 });
 
@@ -46,47 +144,22 @@ function switchTab(tab) {
     }
 }
 
-// Upload file
-async function uploadFile() {
-    const file = fileInput.files[0];
-    if (!file) {
-        showStatus('Please select a file first', 'error');
-        return;
-    }
-
-    uploadBtn.disabled = true;
-    uploadBtn.innerHTML = '<span class="loading"></span>';
-    uploadStatus.style.display = 'none';
-
-    const formData = new FormData();
-    formData.append('file', file);
-
+// Check if server has documents loaded
+async function checkServerStatus() {
     try {
-        const res = await fetch('/upload', {
-            method: 'POST',
-            body: formData
-        });
-
+        const res = await fetch('/status');
         const data = await res.json();
 
-        if (res.ok) {
-            showStatus(data.message, 'success');
-            fileInput.value = '';
-            selectedFile.textContent = '';
-            loadFiles();
-
-            // Enable question input
+        if (data.documents_loaded === 0) {
+            questionInput.disabled = true;
+            askBtn.disabled = true;
+            response.textContent = '⚠️ No documents loaded. Please add files to the "files" folder and restart the server.';
+        } else {
             questionInput.disabled = false;
             askBtn.disabled = false;
-            questionInput.focus();
-        } else {
-            showStatus(data.message || 'Upload failed', 'error');
         }
     } catch (error) {
-        showStatus(`Error: ${error.message}`, 'error');
-    } finally {
-        uploadBtn.disabled = false;
-        uploadBtn.innerHTML = '⬆️ Upload';
+        console.error('Error checking server status:', error);
     }
 }
 
@@ -94,7 +167,7 @@ async function uploadFile() {
 async function askQuestion() {
     const question = questionInput.value.trim();
     if (!question) {
-        alert('Please enter a question');
+        showToast('Please enter a question', 'warning');
         return;
     }
 
@@ -118,7 +191,7 @@ async function askQuestion() {
             response.textContent = data.answer;
 
             if (data.sources && data.sources.length > 0) {
-                sourcesDiv.innerHTML = `<strong>📚 Sources:</strong> ${data.sources.map(s => s.split('/').pop()).join(', ')}`;
+                sourcesDiv.innerHTML = `<strong>📚 Sources:</strong> ${data.sources.join(', ')}`;
                 sourcesDiv.style.display = 'block';
             }
 
@@ -131,68 +204,14 @@ async function askQuestion() {
             }
         } else {
             response.textContent = data.message || 'Failed to get answer';
+            showToast(data.message || 'Failed to get answer', 'error');
         }
     } catch (error) {
         response.textContent = `Error: ${error.message}`;
+        showToast(`Error: ${error.message}`, 'error');
     } finally {
         askBtn.disabled = false;
         askBtn.textContent = 'Ask';
-    }
-}
-
-// Load files
-async function loadFiles() {
-    try {
-        const res = await fetch('/files');
-        const data = await res.json();
-
-        if (data.files && data.files.length > 0) {
-            fileCount.textContent = data.files.length;
-            fileList.innerHTML = data.files.map(file => `
-                        <div class="file-item">
-                            <div class="file-info">
-                                <div class="file-name">📄 ${file.filename}</div>
-                                <div class="file-meta">${file.size_mb} MB • ${file.chunks} chunks</div>
-                            </div>
-                            <button class="delete-btn" onclick="deleteFile('${file.filename}')">🗑️</button>
-                        </div>
-                    `).join('');
-        } else {
-            fileCount.textContent = '0';
-            fileList.innerHTML = '<div class="empty-state">No files uploaded yet</div>';
-        }
-    } catch (error) {
-        console.error('Error loading files:', error);
-    }
-}
-
-// Delete file
-async function deleteFile(filename) {
-    if (!confirm(`Delete "${filename}"?`)) return;
-
-    try {
-        const res = await fetch(`/files/${filename}`, {
-            method: 'DELETE'
-        });
-
-        const data = await res.json();
-
-        if (res.ok) {
-            showStatus(data.message, 'success');
-            loadFiles();
-
-            // Disable question input if no files left
-            if (data.remaining_files === 0) {
-                questionInput.disabled = true;
-                askBtn.disabled = true;
-                response.textContent = '';
-                sourcesDiv.style.display = 'none';
-            }
-        } else {
-            showStatus(data.message || 'Delete failed', 'error');
-        }
-    } catch (error) {
-        showStatus(`Error: ${error.message}`, 'error');
     }
 }
 
@@ -205,47 +224,43 @@ async function loadHistory() {
         if (data.history && data.history.length > 0) {
             historyList.innerHTML = data.history.reverse().map(item => {
                 const date = new Date(item.timestamp).toLocaleString();
+                const sources = item.sources && item.sources.length > 0 
+                    ? `<div class="history-meta">📚 Sources: ${item.sources.join(', ')}</div>`
+                    : '';
                 return `
-                            <div class="history-item">
-                                <div class="history-question">Q: ${item.question}</div>
-                                <div class="history-answer">A: ${item.answer}</div>
-                                <div class="history-meta">🕒 ${date}</div>
-                            </div>
-                        `;
+                    <div class="history-item">
+                        <div class="history-question">Q: ${item.question}</div>
+                        <div class="history-answer">A: ${item.answer}</div>
+                        ${sources}
+                        <div class="history-meta">🕒 ${date}</div>
+                    </div>
+                `;
             }).join('');
         } else {
             historyList.innerHTML = '<div class="empty-state">No conversation history yet</div>';
         }
     } catch (error) {
         console.error('Error loading history:', error);
+        showToast('Failed to load history', 'error');
     }
 }
 
 // Clear history
 async function clearHistory() {
-    if (!confirm('Clear all conversation history?')) return;
+    showConfirmModal('Are you sure you want to clear all conversation history?', async function() {
+        try {
+            const res = await fetch('/history', {
+                method: 'DELETE'
+            });
 
-    try {
-        const res = await fetch('/history', {
-            method: 'DELETE'
-        });
-
-        if (res.ok) {
-            loadHistory();
-            alert('History cleared successfully');
+            if (res.ok) {
+                loadHistory();
+                showToast('History cleared successfully', 'success');
+            } else {
+                showToast('Failed to clear history', 'error');
+            }
+        } catch (error) {
+            showToast(`Error: ${error.message}`, 'error');
         }
-    } catch (error) {
-        alert(`Error: ${error.message}`);
-    }
-}
-
-// Show status message
-function showStatus(message, type) {
-    uploadStatus.className = `status ${type}`;
-    uploadStatus.textContent = message;
-    uploadStatus.style.display = 'block';
-
-    setTimeout(() => {
-        uploadStatus.style.display = 'none';
-    }, 5000);
+    });
 }

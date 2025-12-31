@@ -1,19 +1,23 @@
 import os
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
-from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 import json
 from datetime import datetime
+import pandas as pd
 # Document loaders
-from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader
+from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader, CSVLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-# Embeddings and vector store - UPDATED IMPORT
-from langchain_openai import OpenAIEmbeddings  # Changed this line
+# Embeddings and vector store
+from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
 
 # OpenAI
 from openai import OpenAI
+
+# Document schema
+from langchain_core.documents import Document
 
 # Load environment variables
 load_dotenv()
@@ -24,14 +28,15 @@ CORS(app)
 
 # Configuration
 app.config['UPLOAD_FOLDER'] = 'files'
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 app.config['HISTORY_FILE'] = 'chat_history.json'
-ALLOWED_EXTENSIONS = {'pdf', 'txt', 'docx'}
+ALLOWED_EXTENSIONS = {'pdf', 'txt', 'docx', 'csv', 'odt'}
 
 # Global variables
-vector_stores = {}  # Dictionary to store multiple vector databases
-uploaded_files = []  # List to track uploaded files
-chat_history = []  # Store conversation history
+vector_stores = {}
+merged_vector_store = None
+uploaded_files = []
+chat_history = []
 openai_api_key = os.getenv("OPENAI_API_KEY")
 
 if not openai_api_key:
@@ -41,14 +46,19 @@ if not openai_api_key:
 client = OpenAI(api_key=openai_api_key)
 embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
 
+# Text splitter
+text_splitter = RecursiveCharacterTextSplitter(
+    chunk_size=2000,
+    chunk_overlap=400,
+    length_function=len,
+)
+
 
 def allowed_file(filename):
-   
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
 def load_chat_history():
-    
     global chat_history
     try:
         if os.path.exists(app.config['HISTORY_FILE']):
@@ -60,7 +70,6 @@ def load_chat_history():
 
 
 def save_chat_history():
-    
     try:
         with open(app.config['HISTORY_FILE'], 'w', encoding='utf-8') as f:
             json.dump(chat_history, f, indent=2, ensure_ascii=False)
@@ -68,230 +77,250 @@ def save_chat_history():
         print(f"Error saving chat history: {e}")
 
 
-def add_to_history(question, answer, filename=None):
- 
+def add_to_history(question, answer, sources=None):
     chat_history.append({
         'timestamp': datetime.now().isoformat(),
         'question': question,
         'answer': answer,
-        'filename': filename
+        'sources': sources
     })
     save_chat_history()
 
 
 def load_document(file_path):
-
+    """Load any document and create rich, comprehensive content for AI"""
     try:
-        if file_path.endswith(".pdf"):
+        filename = os.path.basename(file_path)
+        
+        if file_path.endswith(".csv"):
+            # Load CSV and create comprehensive text representation
+            try:
+                df = pd.read_csv(file_path, encoding='utf-8')
+                
+                # Create ONE comprehensive document with ALL data
+                full_content = f"=== CSV FILE: {filename} ===\n\n"
+                full_content += f"This file contains {len(df)} rows and {len(df.columns)} columns.\n\n"
+                full_content += f"Column names: {', '.join(df.columns.tolist())}\n\n"
+                
+                # Add detailed column information
+                full_content += "DETAILED COLUMN INFORMATION:\n\n"
+                for col in df.columns:
+                    full_content += f"Column: {col}\n"
+                    unique_values = df[col].dropna().unique()
+                    full_content += f"  - Total entries: {df[col].count()}\n"
+                    full_content += f"  - Unique values: {len(unique_values)}\n"
+                    full_content += f"  - All unique values: {', '.join([str(v) for v in unique_values])}\n\n"
+                
+                # Add complete data (all rows)
+                full_content += f"\n\nCOMPLETE DATA ({len(df)} rows):\n\n"
+                full_content += df.to_string(index=False)
+                
+                # Split into manageable chunks for vector store
+                docs = text_splitter.create_documents(
+                    [full_content],
+                    metadatas=[{'filename': filename, 'source': file_path}]
+                )
+                
+                print(f"  📊 CSV loaded: {len(df)} rows, {len(df.columns)} columns → {len(docs)} chunks")
+                return docs
+                
+            except Exception as e:
+                print(f"Error loading CSV: {e}")
+                loader = CSVLoader(file_path, encoding='utf-8')
+                docs = loader.load()
+                
+        elif file_path.endswith(".pdf"):
             loader = PyPDFLoader(file_path)
+            docs = loader.load()
+            docs = text_splitter.split_documents(docs)
+            
         elif file_path.endswith(".txt"):
             loader = TextLoader(file_path, encoding='utf-8')
+            docs = loader.load()
+            docs = text_splitter.split_documents(docs)
+            
         elif file_path.endswith(".docx"):
             loader = Docx2txtLoader(file_path)
+            docs = loader.load()
+            docs = text_splitter.split_documents(docs)
+            
+        elif file_path.endswith(".odt"):
+            loader = TextLoader(file_path, encoding='utf-8')
+            docs = loader.load()
+            docs = text_splitter.split_documents(docs)
+            
         else:
-            raise ValueError("Unsupported file type. Use PDF, TXT, or DOCX")
+            raise ValueError(f"Unsupported file type: {file_path}")
         
-        return loader.load()
+        # Add filename to all documents
+        for doc in docs:
+            doc.metadata['filename'] = filename
+            doc.metadata['source'] = file_path
+        
+        return docs
+        
     except Exception as e:
-        raise Exception(f"Error loading document: {str(e)}")
+        print(f"Error loading document {file_path}: {str(e)}")
+        return None
 
 
 def create_vector_store(docs):
- 
     try:
         return FAISS.from_documents(docs, embeddings)
     except Exception as e:
         raise Exception(f"Error creating vector store: {str(e)}")
 
 
-def merge_vector_stores():
-
+def rebuild_merged_vector_store():
+    """Merge all vector stores"""
+    global merged_vector_store
+    
     if not vector_stores:
-        return None
+        merged_vector_store = None
+        return
     
-    # Start with the first vector store
-    merged_store = list(vector_stores.values())[0]
+    all_docs = []
+    for filename, docs in vector_stores.items():
+        all_docs.extend(docs)
     
-    # Merge with remaining stores
-    for filename, store in list(vector_stores.items())[1:]:
+    if all_docs:
+        merged_vector_store = create_vector_store(all_docs)
+        print(f"✅ Merged vector store created with {len(all_docs)} chunks")
+
+
+def load_all_files_from_folder():
+    """Load all documents from files folder"""
+    global uploaded_files, vector_stores
+    
+    uploaded_files = []
+    vector_stores = {}
+    
+    print(f"🔍 Scanning folder: {app.config['UPLOAD_FOLDER']}")
+    
+    if not os.path.exists(app.config['UPLOAD_FOLDER']):
+        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+        print(f"📁 Created folder: {app.config['UPLOAD_FOLDER']}")
+        return
+    
+    files = os.listdir(app.config['UPLOAD_FOLDER'])
+    
+    if not files:
+        print("⚠️ No files found in the folder")
+        return
+    
+    loaded_count = 0
+    
+    for filename in files:
+        if not allowed_file(filename):
+            print(f"⏭️ Skipping: {filename}")
+            continue
+        
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        
         try:
-            merged_store.merge_from(store)
-        except:
-            pass
+            print(f"📄 Loading: {filename}")
+            
+            docs = load_document(file_path)
+            
+            if not docs:
+                print(f"⚠️ Could not load {filename}")
+                continue
+            
+            file_size = os.path.getsize(file_path)
+            file_size_mb = round(file_size / (1024 * 1024), 2)
+            
+            vector_stores[filename] = docs
+            
+            uploaded_files.append({
+                'filename': filename,
+                'size_mb': file_size_mb,
+                'chunks': len(docs),
+                'loaded_at': datetime.now().isoformat()
+            })
+            
+            loaded_count += 1
+            print(f"✅ Loaded: {filename} ({file_size_mb} MB, {len(docs)} chunks)")
+            
+        except Exception as e:
+            print(f"❌ Error loading {filename}: {str(e)}")
     
-    return merged_store
+    rebuild_merged_vector_store()
+    
+    print(f"\n🎉 Successfully loaded {loaded_count} files")
 
 
 def get_answer(question):
-  
-    if not vector_stores:
-        return "Please upload at least one document first.", None
+    """Pure AI-driven answer generation - no hardcoded logic"""
+    if not merged_vector_store:
+        return "No documents are loaded. Please add files to the 'files' folder and restart the server.", None
     
     try:
-        # Merge all vector stores
-        merged_store = merge_vector_stores()
-        
-        if merged_store is None:
-            return "No documents available to search.", None
-        
-        # Find relevant documents
-        docs = merged_store.similarity_search(question, k=5)
+        # Search for relevant content (more results for better context)
+        docs = merged_vector_store.similarity_search(question, k=15)
         
         if not docs:
-            return "I couldn't find relevant information in the uploaded documents.", None
+            return "I couldn't find relevant information in the loaded documents.", None
         
-        # Create context from documents
-        context = "\n\n".join([d.page_content for d in docs])
+        # Build rich context from all relevant documents
+        context = ""
+        sources = set()
         
-        # Create prompt
-        prompt = f"""Answer the question using ONLY the context below. 
-If the answer is not in the context, say "I don't have enough information to answer that based on the uploaded documents."
+        for doc in docs:
+            filename = doc.metadata.get('filename', 'Unknown')
+            sources.add(filename)
+            context += f"\n\n=== From: {filename} ===\n"
+            context += doc.page_content
+        
+        # Let AI handle EVERYTHING - no restrictions, no logic
+        prompt = f"""You are an intelligent assistant with access to document content. Answer the user's question based on the information provided.
 
-Context:
+DOCUMENTS CONTENT:
 {context}
 
-Question: {question}
+USER QUESTION: {question}
 
-Answer:"""
+INSTRUCTIONS:
+- Answer naturally and comprehensively
+- If asked for lists, counts, or specific data, extract and provide exact information from the content
+- If asked "how many", count accurately from the data
+- If asked for "all" or "list", provide complete lists
+- If information is in tables or structured data, parse it carefully
+- Cite which document(s) you used
+- Be thorough and accurate
+
+YOUR ANSWER:"""
         
-        # Call OpenAI API
+        # Call OpenAI with no restrictions - let AI figure it out
         response = client.chat.completions.create(
             model="gpt-4",
             messages=[
-                {"role": "system", "content": "You are a helpful assistant that answers questions based on provided documents."},
+                {
+                    "role": "system", 
+                    "content": "You are a highly capable AI assistant. You excel at understanding and analyzing any type of document content including text, tables, CSV data, reports, and more. You provide accurate, detailed answers by carefully analyzing the provided information."
+                },
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.7,
-            max_tokens=500
+            temperature=0.1,
+            max_tokens=2000
         )
         
         answer = response.choices[0].message.content
         
-        # Get source filenames
-        sources = list(set([doc.metadata.get('source', 'Unknown') for doc in docs]))
-        
-        return answer, sources
+        return answer, list(sources)
     
     except Exception as e:
         return f"Error processing question: {str(e)}", None
 
 
-def get_file_info(filename):
-    
-    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    if os.path.exists(file_path):
-        size = os.path.getsize(file_path)
-        size_mb = round(size / (1024 * 1024), 2)
-        return {
-            'filename': filename,
-            'size': size,
-            'size_mb': size_mb,
-            'path': file_path
-        }
-    return None
-
-
 # Routes
 @app.route('/')
 def index():
-    """Serve the main page"""
     return render_template('index.html')
-
-
-@app.route('/upload', methods=['POST'])
-def upload_file():
-    """Upload and process a document"""
-    # Check if file is in request
-    if 'file' not in request.files:
-        return jsonify({
-            'status': 'error',
-            'error': 'No file provided',
-            'message': 'Please select a file to upload'
-        }), 400
-    
-    file = request.files['file']
-    
-    # Check if file is selected
-    if file.filename == '':
-        return jsonify({
-            'status': 'error',
-            'error': 'No file selected',
-            'message': 'Please choose a file before uploading'
-        }), 400
-    
-    # Check if file type is allowed
-    if not allowed_file(file.filename):
-        return jsonify({
-            'status': 'error',
-            'error': 'Invalid file type',
-            'message': 'Please upload a PDF, TXT, or DOCX file'
-        }), 400
-    
-    try:
-        # Save file securely
-        filename = secure_filename(file.filename)
-        
-        # Check if file already exists
-        if filename in uploaded_files:
-            return jsonify({
-                'status': 'error',
-                'error': 'Duplicate file',
-                'message': f'File "{filename}" is already uploaded. Please delete it first or choose a different file.'
-            }), 400
-        
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(file_path)
-        
-        # Get file size
-        file_size = os.path.getsize(file_path)
-        file_size_mb = round(file_size / (1024 * 1024), 2)
-        
-        # Load and process document
-        docs = load_document(file_path)
-        
-        if not docs:
-            os.remove(file_path)
-            return jsonify({
-                'status': 'error',
-                'error': 'Empty document',
-                'message': f'The file "{filename}" appears to be empty or could not be read.'
-            }), 400
-        
-        # Create vector store for this file
-        vector_stores[filename] = create_vector_store(docs)
-        
-        # Add to uploaded files list
-        uploaded_files.append({
-            'filename': filename,
-            'size_mb': file_size_mb,
-            'chunks': len(docs),
-            'uploaded_at': datetime.now().isoformat()
-        })
-        
-        return jsonify({
-            'status': 'success',
-            'message': f'Document "{filename}" uploaded successfully!',
-            'filename': filename,
-            'size_mb': file_size_mb,
-            'chunks': len(docs),
-            'total_files': len(uploaded_files)
-        }), 200
-    
-    except Exception as e:
-        # Clean up if error occurs
-        if 'file_path' in locals() and os.path.exists(file_path):
-            os.remove(file_path)
-        
-        return jsonify({
-            'status': 'error',
-            'error': 'Processing failed',
-            'message': f'Failed to process file: {str(e)}'
-        }), 500
 
 
 @app.route('/ask', methods=['POST'])
 def ask_question():
-   
+    """Ask any question - AI handles everything"""
     try:
         data = request.get_json()
         
@@ -311,14 +340,7 @@ def ask_question():
                 'message': 'Please enter a valid question'
             }), 400
         
-        if len(question) < 3:
-            return jsonify({
-                'status': 'error',
-                'error': 'Question too short',
-                'message': 'Please enter a more detailed question'
-            }), 400
-        
-        # Get answer
+        # Get answer - AI handles everything
         answer, sources = get_answer(question)
         
         # Add to history
@@ -341,7 +363,6 @@ def ask_question():
 
 @app.route('/files', methods=['GET'])
 def list_files():
-
     return jsonify({
         'status': 'success',
         'files': uploaded_files,
@@ -349,40 +370,20 @@ def list_files():
     }), 200
 
 
-@app.route('/files/<filename>', methods=['DELETE'])
-def delete_file(filename):
-   
-    try:
-        # Remove from vector stores
-        if filename in vector_stores:
-            del vector_stores[filename]
-        
-        # Remove from uploaded files list
-        global uploaded_files
-        uploaded_files = [f for f in uploaded_files if f['filename'] != filename]
-        
-        # Delete physical file
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        if os.path.exists(file_path):
-            os.remove(file_path)
-        
-        return jsonify({
-            'status': 'success',
-            'message': f'File "{filename}" deleted successfully',
-            'remaining_files': len(uploaded_files)
-        }), 200
+@app.route('/reload', methods=['POST'])
+def reload_files():
+    """Reload all files"""
+    load_all_files_from_folder()
     
-    except Exception as e:
-        return jsonify({
-            'status': 'error',
-            'error': 'Delete failed',
-            'message': f'Failed to delete file: {str(e)}'
-        }), 500
+    return jsonify({
+        'status': 'success',
+        'message': f'Reloaded {len(uploaded_files)} files',
+        'files': uploaded_files
+    }), 200
 
 
 @app.route('/history', methods=['GET'])
 def get_history():
- 
     limit = request.args.get('limit', type=int, default=50)
     return jsonify({
         'status': 'success',
@@ -393,7 +394,6 @@ def get_history():
 
 @app.route('/history', methods=['DELETE'])
 def clear_history():
- 
     global chat_history
     chat_history = []
     save_chat_history()
@@ -405,7 +405,6 @@ def clear_history():
 
 @app.route('/status', methods=['GET'])
 def status():
-  
     return jsonify({
         'status': 'success',
         'documents_loaded': len(uploaded_files),
@@ -415,15 +414,6 @@ def status():
 
 
 # Error handlers
-@app.errorhandler(413)
-def too_large(e):
-    return jsonify({
-        'status': 'error',
-        'error': 'File too large',
-        'message': 'File size exceeds 16MB limit. Please upload a smaller file.'
-    }), 413
-
-
 @app.errorhandler(404)
 def not_found(e):
     return jsonify({
@@ -443,14 +433,19 @@ def server_error(e):
 
 
 if __name__ == '__main__':
-    # Create upload folder if it doesn't exist
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     
-    # Load chat history
     load_chat_history()
     
-    # Run the app
-    print("🚀 Flask server starting...")
-    print(f"📁 Upload folder: {app.config['UPLOAD_FOLDER']}")
-    print(f"💬 Chat history file: {app.config['HISTORY_FILE']}")
+    print("\n" + "="*60)
+    print("🚀 Starting AI-Powered Document Chatbot")
+    print("="*60)
+    load_all_files_from_folder()
+    print("="*60 + "\n")
+    
+    print(f"📁 Documents folder: {app.config['UPLOAD_FOLDER']}")
+    print(f"💬 Chat history: {app.config['HISTORY_FILE']}")
+    print(f"✅ Server ready at http://localhost:5000")
+    print("\n")
+    
     app.run(debug=True, host='0.0.0.0', port=5000)

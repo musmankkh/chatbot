@@ -5,7 +5,10 @@ requests
 langchain
 langchain-community
 langchain-openai
+langchain-core
 openai
 pypdf
 docx2txt
 faiss-cpu
+langchain-text-splitters
+pandas

@@ -10,82 +10,71 @@
     />
   </head>
   <body>
-    <div class="container">
-      <!-- Sidebar -->
-      <div class="sidebar">
-        <h2>📁 Uploaded Files <span class="badge" id="fileCount">0</span></h2>
-        <div class="file-list" id="fileList">
-          <div class="empty-state">No files uploaded yet</div>
-        </div>
-      </div>
+    <!-- Floating Chatbot Button -->
+    <button class="chatbot-toggle" id="chatbotToggle" onclick="toggleChatbot()">
+      <svg class="chat-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+      </svg>
+      <svg class="close-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+      </svg>
+    </button>
 
-      <!-- Main Content -->
-      <div class="main-content">
-        <h1>📚 Advanced Document AI Chatbot</h1>
-        <p class="subtitle">
-          Upload multiple documents and ask questions. Conversation history is
-          automatically saved!
-        </p>
-
-        <!-- Tabs -->
-        <div class="tabs">
-          <button class="tab active" onclick="switchTab('chat')">
-            💬 Chat
-          </button>
-          <button class="tab" onclick="switchTab('history')">📜 History</button>
-        </div>
-
-        <!-- Chat Tab -->
-        <div id="chatTab" class="tab-content active">
-          <div class="upload-section">
-            <div class="file-input-wrapper">
-              <label for="fileInput" class="file-button">📎 Choose File</label>
-              <input type="file" id="fileInput" accept=".pdf,.txt,.docx" />
-            </div>
-            <button
-              class="upload-button"
-              onclick="uploadFile()"
-              id="uploadBtn"
-              disabled
-            >
-              ⬆️ Upload
-            </button>
-            <div id="selectedFile" class="selected-file"></div>
-            <div id="uploadStatus" class="status" style="display: none"></div>
+    <!-- Chatbot Container -->
+    <div class="chatbot-container" id="chatbotContainer">
+      <div class="container">
+        <!-- Main Content -->
+        <div class="main-content">
+          <div class="chat-header">
+            <h1>📚 AI Document Assistant</h1>
+            <p class="subtitle">
+              Ask questions about your documents. Conversation history is
+              automatically saved!
+            </p>
           </div>
 
-          <div class="chat-section">
-            <div class="input-group">
-              <input
-                type="text"
-                id="questionInput"
-                placeholder="Ask a question about your documents..."
-                disabled
-              />
-              <button
-                class="ask-button"
-                onclick="askQuestion()"
-                id="askBtn"
-                disabled
-              >
-                Ask
+          <!-- Tabs -->
+          <div class="tabs">
+            <button class="tab active" onclick="switchTab('chat')">
+              💬 Chat
+            </button>
+            <button class="tab" onclick="switchTab('history')">📜 History</button>
+          </div>
+
+          <!-- Chat Tab -->
+          <div id="chatTab" class="tab-content active">
+            <div class="chat-section">
+              <div class="input-group">
+                <input
+                  type="text"
+                  id="questionInput"
+                  placeholder="Ask a question about your documents..."
+                />
+                <button
+                  class="ask-button"
+                  onclick="askQuestion()"
+                  id="askBtn"
+                >
+                  Ask
+                </button>
+              </div>
+              <div id="response" class="response-box"></div>
+              <div id="sources" class="sources" style="display: none"></div>
+            </div>
+          </div>
+
+          <!-- History Tab -->
+          <div id="historyTab" class="tab-content">
+            <div class="history-header">
+              <h2>📜 Conversation History</h2>
+              <button class="clear-history-btn" onclick="clearHistory()">
+                🗑️ Clear History
               </button>
             </div>
-            <div id="response" class="response-box"></div>
-            <div id="sources" class="sources" style="display: none"></div>
-          </div>
-        </div>
-
-        <!-- History Tab -->
-        <div id="historyTab" class="tab-content">
-          <div class="history-header">
-            <h2>📜 Conversation History</h2>
-            <button class="clear-history-btn" onclick="clearHistory()">
-              🗑️ Clear History
-            </button>
-          </div>
-          <div class="history-list" id="historyList">
-            <div class="empty-state">No conversation history yet</div>
+            <div class="history-list" id="historyList">
+              <div class="empty-state">No conversation history yet</div>
+            </div>
           </div>
         </div>
       </div>
