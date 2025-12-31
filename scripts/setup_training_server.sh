@@ -33,13 +33,11 @@ flask
 flask-cors
 python-dotenv
 requests
-
 openai
 langchain
 langchain-community
 langchain-core
 langchain-text-splitters
-
 pypdf
 docx2txt
 faiss-cpu
@@ -47,6 +45,7 @@ pandas
 nltk
 gensim
 rank-bm25
+psutil
 EOF
 fi
 
