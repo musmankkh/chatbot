@@ -1,30 +1,71 @@
 [
   {
-    "timestamp": "2025-12-31T16:07:34.945883",
-    "question": "hi",
-    "answer": "Hello! 👋 I'm your AI document assistant. I'm here to help you find information from your documents.\n\nCurrently loaded documents: 4_v4_1_18.pdf, Cooking_Oil_Analytics_Report.docx, Cooking_Oil_Analytics_Report_.docx, Sales Management.pdf, student-dataset.csv, test.txt\n\nYou can ask me:\n- Questions about the content in your documents\n- To summarize any document\n- To find specific information or data\n- To analyze CSV files and extract data\n\nWhat would you like to know?",
+    "timestamp": "2026-01-01T11:31:51.631174",
+    "question": "waht is sentiment analysis",
+    "answer": "Error processing question: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************zk4A. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}, 'status': 401}",
     "sources": null
   },
   {
-    "timestamp": "2025-12-31T16:09:23.439603",
-    "question": "analyze the csv file",
-    "answer": "The CSV file named \"student-dataset.csv\" contains 307 data rows and 16 columns. The total entries, including the header, amount to 308 rows. The columns in the CSV file are as follows:\n\n1. id\n2. name\n3. nationality\n4. city\n5. latitude\n6. longitude\n7. gender\n8. ethnic.group\n9. age\n10. english.grade\n11. math.grade\n12. sciences.grade\n13. language.grade\n14. portfolio.rating\n15. coverletter.rating\n16. refletter.rating\n\nHere are some details about the columns:\n\n- The 'id' column is of type int64, with 307 entries and no missing values. It contains unique values only.\n- The 'name' column is of type object, with 307 entries and no missing values. It also contains unique values only.\n- The 'nationality' column is of type object, with 307 entries and no missing values. It has 31 unique values.\n- The 'city' column is of type object, with 307 entries and no missing values. It has 161 unique values.\n- The 'latitude' and 'longitude' columns are of type float64, with 307 entries each and no missing values.\n- The 'gender' column is of type object, with 307 entries and no missing values. It has 3 unique values: F, M, and other.\n- The 'ethnic.group' column is of type float64, but it has no entries and all 307 values are missing.\n- The 'age' column is of type int64, with 307 entries and no missing values. It has 8 unique values.\n- The 'english.grade', 'math.grade', and 'sciences.grade' columns are of type float64, with 307 entries each and no missing values.\n\nThis information is based on the overview of the \"student-dataset.csv\" file.",
+    "timestamp": "2026-01-01T11:33:59.668055",
+    "question": "what is sentiment analysis",
+    "answer": "Error processing question: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************zk4A. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}, 'status': 401}",
+    "sources": null
+  },
+  {
+    "timestamp": "2026-01-01T11:34:08.151552",
+    "question": "linkedin web scraping",
+    "answer": "Error processing question: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************zk4A. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}, 'status': 401}",
+    "sources": null
+  },
+  {
+    "timestamp": "2026-01-01T11:35:51.871197",
+    "question": "sentiment analysis summary",
+    "answer": "The sentiment analysis project detailed in the \"Sentiment Analysis Report.docx\" successfully developed a three-class sentiment classification model using the DistilBERT architecture, which is both efficient and effective for processing social media text. By fine-tuning the model on the Sentiment140 dataset, the project achieved strong accuracy and consistency in classifying sentiments as negative, neutral, or positive. The report outlines the model's architecture, training procedures, and evaluation metrics, emphasizing its ability to generalize well to unseen data. Additionally, a custom prediction function was implemented to allow users to input raw tweets and receive sentiment classifications along with confidence scores, enhancing the model's practical applicability for social media monitoring and opinion mining. Overall, the project highlights the effectiveness of transformer-based models in natural language processing tasks.",
     "sources": [
-      "4_v4_1_18.pdf",
+      "Sentiment Analysis Report.docx",
+      "Sales Management.pdf",
       "student-dataset.csv",
-      "Cooking_Oil_Analytics_Report.docx",
-      "Cooking_Oil_Analytics_Report_.docx"
+      "Instagram Web Scraping.docx",
+      "4_v4_1_18.pdf"
     ]
   },
   {
-    "timestamp": "2025-12-31T16:09:54.176701",
-    "question": "give summary of student dataset",
-    "answer": "The student-dataset.csv provides statistical data on various aspects of a student's profile and academic performance. The dataset includes information such as student ID, geographical coordinates (latitude and longitude), age, and grades in English, Math, Sciences, and Language. It also contains ratings on their portfolio, cover letter, and reference letter. The average age of the students is approximately 22 years, and they generally perform well acadically, with mean grades ranging from 3.37 to 4.40 across different subjects. The dataset provides a comprehensive view of the students' academic performance and other relevant attributes.",
+    "timestamp": "2026-01-01T11:39:10.910820",
+    "question": "web scraping",
+    "answer": "Error processing question: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************zk4A. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}, 'status': 401}",
+    "sources": null
+  },
+  {
+    "timestamp": "2026-01-01T11:39:19.102503",
+    "question": "linkedin web scraping",
+    "answer": "Error processing question: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************zk4A. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}, 'status': 401}",
+    "sources": null
+  },
+  {
+    "timestamp": "2026-01-01T11:40:09.812878",
+    "question": "linkedin web scraping",
+    "answer": "Error processing question: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************zk4A. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}, 'status': 401}",
+    "sources": null
+  },
+  {
+    "timestamp": "2026-01-01T11:41:03.846419",
+    "question": "sentiment analysis summary",
+    "answer": "The sentiment analysis project detailed in the \"Sentiment Analysis Report.docx\" successfully developed a three-class sentiment classification model using DistilBERT, a lightweight transformer architecture. The model was fine-tuned on the Sentiment140 dataset, demonstrating strong accuracy and consistency in categorizing tweets as negative, neutral, or positive. Key evaluation metrics, including precision, recall, F1 scores, and a confusion matrix, were employed to assess model performance and identify areas for improvement. Additionally, a custom prediction function was implemented to allow users to input new text and receive sentiment classifications along with confidence scores, enhancing the model's practical applicability in real-world scenarios. Overall, the project highlights the effectiveness of transformer-based architectures for sentiment analysis in social media contexts.",
     "sources": [
-      "Cooking_Oil_Analytics_Report_.docx",
       "4_v4_1_18.pdf",
-      "Cooking_Oil_Analytics_Report.docx",
-      "student-dataset.csv"
+      "Instagram Web Scraping.docx",
+      "student-dataset.csv",
+      "Sentiment Analysis Report.docx"
+    ]
+  },
+  {
+    "timestamp": "2026-01-01T11:49:45.604122",
+    "question": "sentiment analysis",
+    "answer": "Sentiment analysis is a core task in Natural Language Processing (NLP) that focuses on determining the emotional tone conveyed by text. It involves automatically classifying written content into categories such as positive, negative, or neutral. This capability is particularly important in the context of social media, where users express their thoughts and feedback in real time.\n\nIn the context of the provided documents, the sentiment analysis project aims to develop a three-class sentiment classification model using DistilBERT, a lightweight transformer architecture. The model categorizes text into three sentiment classes: negative, neutral, and positive. The project utilizes the Sentiment140 dataset, which contains 1.6 million tweets annotated for sentiment based on emoticons.\n\nKey components of the sentiment analysis project include:\n\n1. **Model Architecture**: The model is based on DistilBERT, which has approximately 66 million parameters and includes six transformer layers. An additional classification head is added to produce outputs for the three sentiment classes.\n\n2. **Objectives**: The primary objective is to accurately categorize text into the three sentiment classes. Secondary objectives include data preprocessing to clean and normalize tweet text.\n\n3. **Evaluation Metrics**: The project includes metrics such as precision, recall, F1-score, and per-class accuracy to assess model performance.\n\n4. **Custom Predictions**: A function is included to process new text inputs, providing predicted sentiment labels along with confidence scores and class probabilities.\n\nThe project successfully demonstrates the effectiveness of transformer-based architectures for sentiment analysis, making it a valuable tool for applications like social media monitoring and opinion mining.\n\n**Sources**: \n- Sentiment Analysis Report.docx (sections: Introduction, Objective, Model Architecture, Conclusion)",
+    "sources": [
+      "Sentiment Analysis Report.docx",
+      "LinkedIn Web Scraping Report .docx",
+      "Sales Management.pdf"
     ]
   }
 ]

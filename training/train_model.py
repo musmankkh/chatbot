@@ -26,9 +26,9 @@ except LookupError:
     nltk.download('stopwords', quiet=True)
 
 # Configuration
-UPLOAD_FOLDER = 'files'
-D2V_MODEL_PATH = 'doc2vec_model.bin'
-METADATA_PATH = 'model_metadata.pkl'
+UPLOAD_FOLDER = '../shared/files'
+D2V_MODEL_PATH = '../models/doc2vec_model.bin'
+METADATA_PATH = '../models/model_metadata.pkl'
 ALLOWED_EXTENSIONS = {'pdf', 'txt', 'docx', 'csv', 'odt'}
 
 # Setup stopwords

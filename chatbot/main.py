@@ -20,15 +20,16 @@ from rank_bm25 import BM25Okapi
 # Load environment variables
 load_dotenv()
 
+
 # Initialize Flask app
 app = Flask(__name__)
 CORS(app)
 
 # Configuration
-app.config['UPLOAD_FOLDER'] = 'files'
+app.config['UPLOAD_FOLDER'] = '../shared/files'
 app.config['HISTORY_FILE'] = 'chat_history.json'
-app.config['D2V_MODEL_PATH'] = 'doc2vec_model.bin'
-app.config['METADATA_PATH'] = 'model_metadata.pkl'
+app.config['D2V_MODEL_PATH'] = '../models/doc2vec_model.bin'
+app.config['METADATA_PATH'] = '../models/model_metadata.pkl'
 
 # Global variables
 chat_history = []
@@ -325,7 +326,7 @@ def get_answer(question):
             file_list = ", ".join([f['filename'] for f in uploaded_files]) if uploaded_files else "no documents yet"
             greeting_response = f"""Hello! 👋 I'm your AI document assistant. I'm here to help you find information from your documents.
 
-
+Currently loaded: {file_list}
 
 You can ask me:
 - Questions about the content in your documents
@@ -412,7 +413,7 @@ YOUR ANSWER:"""
             system_message += " When asked for a summary, provide exactly ONE concise paragraph."
         
         response = client.chat.completions.create(
-            model="gpt-4",
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": system_message},
                 {"role": "user", "content": prompt}

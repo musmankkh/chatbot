@@ -3,3 +3,7 @@ venv/
 
 .venv/
 
+# Environment variables
+.env
+.env.*
+chatbot-key.pem

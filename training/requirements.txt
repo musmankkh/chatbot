@@ -1,0 +1,16 @@
+flask
+flask-cors
+python-dotenv
+pandas
+numpy
+scikit-learn
+langchain
+langchain-community
+openai
+gensim
+nltk
+rank-bm25
+boto3
+joblib
+psutil
+watchdog
