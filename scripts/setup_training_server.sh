@@ -46,6 +46,8 @@ nltk
 gensim
 rank-bm25
 psutil
+watchdog
+scikit-learn
 EOF
 fi
 

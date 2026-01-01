@@ -43,6 +43,7 @@ rank-bm25
 boto3
 joblib
 psutil
+watchdog
 EOF
 fi
 
