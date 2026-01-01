@@ -44,6 +44,7 @@ boto3
 joblib
 psutil
 watchdog
+botocore
 EOF
 fi
 

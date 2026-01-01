@@ -7,6 +7,9 @@ from datetime import datetime
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 import pickle
+import boto3
+from botocore.exceptions import ClientError
+import io
 
 # OpenAI
 from openai import OpenAI
@@ -28,13 +31,16 @@ CORS(app)
 # Configuration
 app.config['UPLOAD_FOLDER'] = '../shared/files'
 app.config['HISTORY_FILE'] = 'chat_history.json'
-app.config['D2V_MODEL_PATH'] = '../models/doc2vec_model.bin'
-app.config['METADATA_PATH'] = '../models/model_metadata.pkl'
+
+# S3 Configuration
+app.config['S3_BUCKET_NAME'] = os.getenv('S3_BUCKET_NAME', 'musmankkh-chatbot-models')
+app.config['S3_MODEL_KEY'] = 'models/doc2vec_model.bin'
+app.config['S3_METADATA_KEY'] = 'models/model_metadata.pkl'
+app.config['AWS_REGION'] = os.getenv('AWS_REGION', 'us-east-1')
 
 # Global variables
 chat_history = []
-openai_api_key = os.getenv("OPENAI_API_KEY")
-
+openai_api_key = ""
 # Model globals
 doc2vec_model = None
 document_texts = []
@@ -43,11 +49,101 @@ bm25_model = None
 bm25_corpus = []
 uploaded_files = []
 
+# S3 Client
+s3_client = None
+
 if not openai_api_key:
     raise ValueError("OPENAI_API_KEY not found in .env file")
 
 # Initialize OpenAI client
 client = OpenAI(api_key=openai_api_key)
+
+
+def initialize_s3_client():
+    """Initialize S3 client with credentials from environment"""
+    global s3_client
+    
+    try:
+        aws_access_key = ""
+        aws_secret_key = ""
+        aws_region = ""
+        
+        if aws_access_key and aws_secret_key:
+            s3_client = boto3.client(
+                's3',
+                aws_access_key_id=aws_access_key,
+                aws_secret_access_key=aws_secret_key,
+                region_name=aws_region
+            )
+            print("✅ S3 client initialized with explicit credentials")
+        else:
+            # Try using default credentials (IAM role, AWS CLI config, etc.)
+            s3_client = boto3.client('s3', region_name=aws_region)
+            print("✅ S3 client initialized with default credentials")
+        
+        return True
+    except Exception as e:
+        print(f"❌ Failed to initialize S3 client: {e}")
+        return False
+
+
+def read_from_s3(s3_key):
+    """Read a file directly from S3 into memory"""
+    try:
+        bucket_name = app.config['S3_BUCKET_NAME']
+        
+        print(f"📥 Reading s3://{bucket_name}/{s3_key} directly from S3...")
+        
+        # Get object from S3
+        response = s3_client.get_object(Bucket=bucket_name, Key=s3_key)
+        
+        # Read the content into memory
+        file_content = response['Body'].read()
+        
+        print(f"✅ Read successfully ({len(file_content)} bytes)")
+        return file_content
+        
+    except ClientError as e:
+        error_code = e.response['Error']['Code']
+        if error_code == 'NoSuchKey':
+            print(f"❌ File not found in S3: s3://{bucket_name}/{s3_key}")
+        else:
+            print(f"❌ S3 read error: {e}")
+        return None
+    except Exception as e:
+        print(f"❌ Error reading from S3: {e}")
+        return None
+
+
+def list_s3_models():
+    """List available model files in S3"""
+    try:
+        bucket_name = app.config['S3_BUCKET_NAME']
+        prefix = 'models/'
+        
+        response = s3_client.list_objects_v2(
+            Bucket=bucket_name,
+            Prefix=prefix
+        )
+        
+        if 'Contents' in response:
+            files = []
+            print(f"\n📂 Files in s3://{bucket_name}/{prefix}:")
+            for obj in response['Contents']:
+                size_mb = obj['Size'] / (1024 * 1024)
+                print(f"   - {obj['Key']} ({size_mb:.2f} MB)")
+                files.append({
+                    'key': obj['Key'],
+                    'size': obj['Size'],
+                    'last_modified': obj['LastModified'].isoformat()
+                })
+            return files
+        else:
+            print(f"⚠️ No files found in s3://{bucket_name}/{prefix}")
+            return []
+    except Exception as e:
+        print(f"❌ Error listing S3 files: {e}")
+        return []
 
 
 def preprocess_text(text):
@@ -73,39 +169,61 @@ def preprocess_text(text):
     
     return filtered_tokens
 
-
 def load_models():
-    """Load pre-trained models and metadata"""
+    """Load pre-trained models from S3 via temporary local files"""
     global doc2vec_model, document_texts, document_metadata
     global bm25_model, bm25_corpus, uploaded_files
     
     print("\n" + "="*60)
-    print("📂 LOADING PRE-TRAINED MODELS")
+    print("📂 LOADING MODELS FROM S3")
     print("="*60)
     
-    # Check if model files exist
-    if not os.path.exists(app.config['D2V_MODEL_PATH']):
-        print(f"⚠️ Doc2Vec model not found: {app.config['D2V_MODEL_PATH']}")
-        print("💡 Please run: python train_model.py")
+    # Initialize S3 client
+    if not initialize_s3_client():
+        print("❌ Cannot proceed without S3 access")
+        print("💡 Please check your AWS credentials in .env file")
         return False
     
-    if not os.path.exists(app.config['METADATA_PATH']):
-        print(f"⚠️ Metadata not found: {app.config['METADATA_PATH']}")
-        print("💡 Please run: python train_model.py")
-        return False
+    # List available files
+    list_s3_models()
+    
+    # Create temp directory for model files
+    import tempfile
+    temp_dir = tempfile.mkdtemp()
     
     try:
-        # Load Doc2Vec model
-        print(f"🧠 Loading Doc2Vec model from {app.config['D2V_MODEL_PATH']}...")
-        doc2vec_model = Doc2Vec.load(app.config['D2V_MODEL_PATH'])
+        # Read Doc2Vec model from S3
+        print(f"\n🧠 Reading Doc2Vec model from S3...")
+        model_content = read_from_s3(app.config['S3_MODEL_KEY'])
+        
+        if model_content is None:
+            print("❌ Failed to read Doc2Vec model from S3")
+            return False
+        
+        # Save to temporary file (Gensim requires file path)
+        temp_model_path = os.path.join(temp_dir, 'doc2vec_model.bin')
+        with open(temp_model_path, 'wb') as f:
+            f.write(model_content)
+        
+        print(f"🧠 Loading Doc2Vec model from temp file...")
+        doc2vec_model = Doc2Vec.load(temp_model_path)
+        
         print(f"✅ Doc2Vec model loaded")
         print(f"   📊 Vocabulary: {len(doc2vec_model.wv)} words")
         print(f"   📐 Vector size: {doc2vec_model.vector_size}")
         
-        # Load metadata
-        print(f"\n📋 Loading metadata from {app.config['METADATA_PATH']}...")
-        with open(app.config['METADATA_PATH'], 'rb') as f:
-            metadata = pickle.load(f)
+        # Read metadata from S3
+        print(f"\n📋 Reading metadata from S3...")
+        metadata_content = read_from_s3(app.config['S3_METADATA_KEY'])
+        
+        if metadata_content is None:
+            print("❌ Failed to read metadata from S3")
+            return False
+        
+        # Load metadata from memory buffer
+        print(f"📋 Loading metadata from memory...")
+        metadata_buffer = io.BytesIO(metadata_content)
+        metadata = pickle.load(metadata_buffer)
         
         document_texts = metadata['document_texts']
         document_metadata = metadata['document_metadata']
@@ -120,17 +238,33 @@ def load_models():
         print(f"   🕐 Trained at: {metadata.get('trained_at', 'Unknown')}")
         
         print("\n" + "="*60)
-        print("✅ MODELS LOADED SUCCESSFULLY!")
+        print("✅ MODELS LOADED SUCCESSFULLY FROM S3")
         print("="*60 + "\n")
         
         return True
         
     except Exception as e:
-        print(f"❌ Error loading models: {e}")
-        print("💡 Please run: python train_model.py")
+        print(f"❌ Error loading models from S3: {e}")
+        import traceback
+        print(traceback.format_exc())
+        print("\n💡 Troubleshooting:")
+        print("   1. Verify S3 bucket exists: s3://musmankkh-chatbot-models/")
+        print("   2. Check model files are uploaded to: s3://musmankkh-chatbot-models/models/")
+        print("   3. Verify AWS credentials have S3 read permissions")
+        print("   4. Ensure the following files exist:")
+        print("      - models/doc2vec_model.bin")
+        print("      - models/model_metadata.pkl")
         return False
-
-
+    
+    finally:
+        # Clean up temporary files
+        try:
+            import shutil
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            print(f"🧹 Cleaned up temporary files")
+        except Exception as e:
+            print(f"⚠️ Warning: Could not clean temp directory: {e}")
+            
 def expand_query(query, top_n=3):
     """Expand query with similar words"""
     if doc2vec_model is None:
@@ -318,7 +452,7 @@ def is_summary_request(question):
 def get_answer(question):
     """Get answer using hybrid search"""
     if doc2vec_model is None:
-        return "❌ Models not loaded. Please run: python train_model.py", None
+        return "❌ Models not loaded. Please check S3 connection and reload models.", None
     
     try:
         # Check if it's a greeting
@@ -489,20 +623,39 @@ def list_files():
 
 @app.route('/reload', methods=['POST'])
 def reload_files():
-    """Reload models (requires retraining with train_model.py)"""
+    """Reload models from S3"""
     success = load_models()
     
     if success:
         return jsonify({
             'status': 'success',
-            'message': 'Models reloaded successfully',
+            'message': 'Models reloaded successfully from S3',
             'files': uploaded_files
         }), 200
     else:
         return jsonify({
             'status': 'error',
-            'message': 'Models not found. Please run: python train_model.py'
+            'message': 'Failed to load models from S3. Check logs for details.'
         }), 400
+
+
+@app.route('/s3/list', methods=['GET'])
+def list_s3_files():
+    """List files in S3 bucket"""
+    if not s3_client:
+        if not initialize_s3_client():
+            return jsonify({
+                'status': 'error',
+                'message': 'S3 client not initialized. Check AWS credentials.'
+            }), 500
+    
+    files = list_s3_models()
+    return jsonify({
+        'status': 'success',
+        'bucket': app.config['S3_BUCKET_NAME'],
+        'files': files,
+        'count': len(files)
+    }), 200
 
 
 @app.route('/history', methods=['GET'])
@@ -543,6 +696,12 @@ def status():
         'bm25': {
             'trained': bm25_model is not None,
             'corpus_size': len(bm25_corpus)
+        },
+        's3': {
+            'enabled': s3_client is not None,
+            'bucket': app.config['S3_BUCKET_NAME'],
+            'model_key': app.config['S3_MODEL_KEY'],
+            'metadata_key': app.config['S3_METADATA_KEY']
         }
     }), 200
 
@@ -553,21 +712,27 @@ if __name__ == '__main__':
     load_chat_history()
     
     print("\n" + "="*60)
-    print("🚀 AI-POWERED DOCUMENT CHATBOT")
+    print("🚀 AI-POWERED DOCUMENT CHATBOT (S3 STREAMING MODE)")
     print("="*60)
     
-    # Load pre-trained models
+    # Load pre-trained models directly from S3 (no local files)
     models_loaded = load_models()
     
     if not models_loaded:
-        print("\n⚠️ WARNING: Models not loaded!")
-        print("Please run the training script first:")
-        print("   python train_model.py")
-        print("\nServer will start but won't work until models are trained.")
+        print("\n⚠️ WARNING: Models not loaded from S3!")
+        print("\n💡 Troubleshooting checklist:")
+        print("   1. Check .env file has AWS credentials")
+        print("   2. Verify S3 bucket: s3://musmankkh-chatbot-models/")
+        print("   3. Confirm model files exist in: s3://musmankkh-chatbot-models/models/")
+        print("   4. Test S3 connection: python test_s3_connection.py")
+        print("\nServer will start but queries won't work until models are loaded.")
     
     print("\n" + "="*60)
     print(f"📁 Documents folder: {app.config['UPLOAD_FOLDER']}")
     print(f"💬 Chat history: {app.config['HISTORY_FILE']}")
+    print(f"☁️  S3 Bucket: {app.config['S3_BUCKET_NAME']}")
+    print(f"📦 Model Key: {app.config['S3_MODEL_KEY']}")
+    print(f"📦 Metadata Key: {app.config['S3_METADATA_KEY']}")
     print(f"✅ Server ready at http://localhost:5000")
     print("="*60 + "\n")
     

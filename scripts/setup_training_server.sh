@@ -48,6 +48,8 @@ rank-bm25
 psutil
 watchdog
 scikit-learn
+botocore
+boto3
 EOF
 fi
 
